@@ -1,14 +1,14 @@
 {
   "name": "contracts",
   "version": "1.0.0",
-  "description": "WebaverseCharacterCreator Contracts",
+  "description": "PFP Airdrop Contracts",
   "main": "truffle-config.js",
   "directories": {
     "test": "test"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/webaverse-studios/WebaverseCharacterCreator-Contract.git"
+    "url": "git+https://github.com/webaverse-studios/pfp-airdrop-contract.git"
   },
   "scripts": {
     "deploy-mainnet": "truffle migrate --network mainnet",
@@ -17,16 +17,16 @@
     "deploy-goerli-reset": "truffle migrate --network goerli --reset",
     "deploy-polygon": "truffle migrate --network polygon",
     "deploy-polygon-reset": "truffle migrate --network polygon --reset",
-    "deploy-verify-mainnet": "truffle run verify WebaverseCharacter --network mainnet",
-    "deploy-verify-polygon": "truffle run verify WebaverseCharacter --network polygon",
-    "deploy-verify-goerli": "truffle run verify WebaverseCharacter --network goerli"
+    "deploy-verify-mainnet": "truffle run verify PFP --network mainnet",
+    "deploy-verify-polygon": "truffle run verify PFP --network polygon",
+    "deploy-verify-goerli": "truffle run verify PFP --network goerli"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/webaverse-studios/WebaverseCharacterCreator-Contract/issues"
+    "url": "https://github.com/webaverse-studios/pfp-airdrop-contract/issues"
   },
-  "homepage": "https://github.com/webaverse-studios/WebaverseCharacterCreator-Contract#readme",
+  "homepage": "https://github.com/webaverse-studios/pfp-airdrop-contract#readme",
   "dependencies": {
     "@a16z/contracts": "^0.0.8",
     "@openzeppelin/contracts": "^4.7.0",

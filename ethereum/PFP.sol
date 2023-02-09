@@ -1,30 +1,29 @@
+
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+pragma solidity ^0.8.15;
+
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
+import "./ERC721A.sol";
 
-contract PFP is ERC721Enumerable, Ownable {
-
-    address public passContract = 0x543D43F390b7d681513045e8a85707438c463d80;
+contract PFP is ERC721A, Ownable {
+    using Strings for uint256;
+    
     uint256 public MAX_TOKENS = 20000;
-    bool public airdropIsActive = false;
+    bool public saleIsActive = false;
+    string public baseExtension = ".json";
+    string private _baseURIextended;
+    address private _passAddress;
 
-    mapping(uint256 => bool) private _isOccupiedId;
-    uint256[] private _occupiedList;
-
-    constructor(address _passContract) ERC721("Webaverse Character", "WCC") {
-        passContract = _passContract;
-    }
-
-    function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal override(ERC721, ERC721Enumerable) {
-        super._beforeTokenTransfer(from, to, tokenId);
-    }
-
-    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721, ERC721Enumerable) returns (bool) {
-        return super.supportsInterface(interfaceId);
+    // WhiteLists for presale.
+    // mapping (address => bool) private _isWhiteListed;
+    // mapping (address => uint) private _numberOfWallets;
+    
+    constructor(
+        address passAddress_
+    ) ERC721A("PFP", "PFP") {
+        _passAddress = passAddress_;
     }
 
     function setBaseURI(string memory baseURI_) external onlyOwner() {
@@ -35,34 +34,30 @@ contract PFP is ERC721Enumerable, Ownable {
         return _baseURIextended;
     }
 
-    function airdropToken(uint256[] memory _ids) public {
-        uint256 numberOfTokens = _ids.length;
-        uint256 balanceOfPassToken = unt256(IERC721(passContract).balanceOf(msg.sender));
+    function tokenURI(uint256 tokenId) public view virtual override returns (string memory)
+    {
+        require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
+        
+        string memory currentBaseURI = _baseURI();
+        return bytes(currentBaseURI).length > 0
+            ? string(abi.encodePacked(currentBaseURI, tokenId.toString(), baseExtension))
+            : "";
+    }
 
-        require(airdropIsActive, "Airdrop must be active to claim Tokens");
-        require(numberOfTokens + balanceOf(msg.sender) <= balanceOfPassToken, "Exceeded max token claim");
+    function flipSaleState() public onlyOwner {
+        saleIsActive = !saleIsActive;
+    }
+
+
+    function mintToken(uint numberOfTokens) public payable {
+        require(saleIsActive, "Sale must be active to mint Tokens");
         require(totalSupply() + numberOfTokens <= MAX_TOKENS, "Purchase would exceed max supply of tokens");
-        for (uint256 i = 0; i < numberOfTokens; i++) {
-            require(_isOccupiedId[_ids[i]] == false, "Those ids already have been claimed for other customers");
-        }
-
-        for(uint i = 0; i < numberOfTokens; i++) {
-            _safeMint(msg.sender, _ids[i]);
-            _isOccupiedId[ _ids[i]] = true;
-            _occupiedList.push( _ids[i]);
-        }
-    }
-
-    function occupiedList() public view returns (uint256[] memory) {
-      return _occupiedList;
-    }
-
-    function flipAirdropState() public onlyOwner {
-        airdropIsActive = !airdropIsActive;
+        _safeMint(msg.sender, numberOfTokens);
     }
 
     function withdraw() public onlyOwner {
         uint256 balance = address(this).balance;
         payable(msg.sender).transfer(balance);
     }
+
 }
