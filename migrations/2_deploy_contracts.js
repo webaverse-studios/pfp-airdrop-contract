@@ -10,6 +10,22 @@ const passContract = {
   "goerli": process.env.goerliPassContractAddress,
 }
 
+const linkContract = {
+  "mainnet": process.env.mainnetLinkAddress,
+  "goerli": process.env.goerliLinkAddress,
+}
+
+const vrfCoordinator = {
+  "mainnet": process.env.mainnetChainlinkVRFCoordinator,
+  "goerli": process.env.goerliChainlinkVRFCoordinator,
+}
+
+const vrfKeyHash = {
+  "mainnet": process.env.mainnetVRFKeyHash,
+  "goerli": process.env.goerliVRFKeyHash,
+}
+
+
 module.exports = async function (deployer) {
   const networkType = NetworkTypes[process.argv[4]];
 
@@ -21,8 +37,9 @@ module.exports = async function (deployer) {
 
   console.log("Deploying on the " + networkType + " networkType");
 //////////////////////////// Webaverse Character ////////////////////////////
-  await deployer.deploy(PFP, passContract[networkType]);
-  
+// 
+console.log("param:", vrfCoordinator[networkType], linkContract[networkType], vrfKeyHash[networkType]);
+await deployer.deploy(PFP, passContract[networkType], vrfCoordinator[networkType], linkContract[networkType], vrfKeyHash[networkType]);
 //////////////////////////////////////////////////////////////////////////
 
   console.log("*******************************")
