@@ -19,7 +19,6 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
     using Strings for uint256;
     
     uint256 public MAX_TOKENS = 20000;
-    uint256 public tokenPrice;
     string public baseExtension = ".json";
     string private _baseURIextended;
     address public _passAddress;
@@ -57,10 +56,6 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
 
     function getPassContract() public view returns (address) {
         return _passAddress;
-    }
-
-    function setTokenPrice(uint256 _tokenPrice) public onlyOwner {
-      tokenPrice = _tokenPrice;
     }
 
     function reveal() public onlyOwner {
