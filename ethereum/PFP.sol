@@ -13,7 +13,53 @@ import "./VRFConsumerBase.sol";
 import "./ERC721A.sol";
 import "./EPSInterface/IEPSDelegationRegister.sol";
 
+/**
+ * @dev These functions deal with verification of Merkle Trees proofs.
+ *
+ * The proofs can be generated using the JavaScript library
+ * https://github.com/miguelmota/merkletreejs[merkletreejs].
+ * Note: the hashing algorithm should be keccak256 and pair sorting should be enabled.
+ *
+ * See `test/utils/cryptography/MerkleProof.test.js` for some examples.
+ */
+library MerkleProof {
+    /**
+     * @dev Returns true if a `leaf` can be proved to be a part of a Merkle tree
+     * defined by `root`. For this, a `proof` must be provided, containing
+     * sibling hashes on the branch from the leaf to the root of the tree. Each
+     * pair of leaves and each pair of pre-images are assumed to be sorted.
+     */
+    function verify(
+        bytes32[] memory proof,
+        bytes32 root,
+        bytes32 leaf
+    ) internal pure returns (bool) {
+        return processProof(proof, leaf) == root;
+    }
 
+    /**
+     * @dev Returns the rebuilt hash obtained by traversing a Merklee tree up
+     * from `leaf` using `proof`. A `proof` is valid if and only if the rebuilt
+     * hash matches the root of the tree. When processing the proof, the pairs
+     * of leafs & pre-images are assumed to be sorted.
+     *
+     * _Available since v4.4._
+     */
+    function processProof(bytes32[] memory proof, bytes32 leaf) internal pure returns (bytes32) {
+        bytes32 computedHash = leaf;
+        for (uint256 i = 0; i < proof.length; i++) {
+            bytes32 proofElement = proof[i];
+            if (computedHash <= proofElement) {
+                // Hash(current computed hash + current element of the proof)
+                computedHash = keccak256(abi.encodePacked(computedHash, proofElement));
+            } else {
+                // Hash(current element of the proof + current computed hash)
+                computedHash = keccak256(abi.encodePacked(proofElement, computedHash));
+            }
+        }
+        return computedHash;
+    }
+}
 
 contract PFP is ERC721A, Ownable, VRFConsumerBase {
     using Strings for uint256;
@@ -28,7 +74,8 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
     bytes32 public vrfKeyHash;
     bytes32 public request_id;
     IEPSDelegationRegister public EPS;
-    mapping (uint256 => bool) private _isClaimed;
+    bytes32 public snapshotMerkleRoot;
+    mapping (address => uint256) private _claimedAmount;
     
     constructor(
         address passAddress_,
@@ -69,6 +116,11 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
         notRevealedUri = _notRevealedURI;
     }
 
+    function setMerkleRoot(bytes32 merkleRoot) public onlyOwner returns (bytes32) {
+        snapshotMerkleRoot = merkleRoot;
+        return snapshotMerkleRoot;
+    }
+
     /**
      * Returns the tokenURI
      * Random starting positions can only be set before the token's metadata is revealed.
@@ -85,48 +137,26 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
             : "";
     }
 
-    /**
-     * Batch mint the pfp token as much as the pass token's amount
-     * string
-     *
-     * @param _ids Pass token's id list
-     */
-    function claimTokens(uint256[] memory _ids) public {
-        uint256 numberOfTokens = _ids.length;
+    function claimTokens(bytes32[] calldata merkleProof, uint256 numberOfTokens, uint256 allowance ) public returns(string memory) {
         address[] memory coldWallets = EPS.getAddresses(msg.sender, _passAddress, 1, true, true);
-        require(totalSupply() + numberOfTokens <= MAX_TOKENS, "Claim would exceed max supply of tokens");
-        for (uint256 i = 0; i < numberOfTokens; i++) {
-            address passOwner = IERC721(_passAddress).ownerOf(_ids[i]);
-            bool isOwner = false;
-            require(_isClaimed[_ids[i]] == false, "Those pass tokens already have been used for claiming.");
-            for (uint256 j = 0; j < coldWallets.length; j++) {
-              if(coldWallets[j]==passOwner)
-                isOwner = true;
+        string memory result;
+        bool isVerified = false;
+        require(totalSupply() + numberOfTokens <= MAX_TOKENS, "Claim would exceed max supply of tokens!");
+        for (uint256 i = 0; i < coldWallets.length; i++) {
+            address coldWallet = coldWallets[i];
+            if (MerkleProof.verify(merkleProof, snapshotMerkleRoot, keccak256(abi.encodePacked(msg.sender, '_', allowance)))) {
+                if(_claimedAmount[coldWallet] + numberOfTokens <= allowance ) {
+                    _safeMint(msg.sender, numberOfTokens);
+                    result = string(abi.encodePacked("Mint is successed!"));
+                    return result;
+                } else {
+                    isVerified = true;
+                }
             }
-            require(isOwner, "You are not the owner of these pass tokens.");
         }
-        _safeMint(msg.sender, numberOfTokens);
-        for (uint256 i = 0; i < numberOfTokens; i++) {
-            _isClaimed[_ids[i]] = true;            
-        }
+        result = isVerified? string(abi.encodePacked("Claim would exceed allowance of tokens!")) : string(abi.encodePacked("Address is not verified in snapshot!"));
+        return result;
     }
-
-    /**
-     * Returns a list of pass token IDs that have not yet been used for claiming.
-     *
-     * @param _ids Pass token's id list
-     */
-    function unclaimedTokens(uint256[] memory _ids) public view returns (uint256, uint256[] memory) {
-        uint256[] memory unclaimed_list = new uint256[](_ids.length);
-        uint256 unclaimed_count = 0;
-        for (uint256 i = 0; i < _ids.length; i++) {
-            if(!_isClaimed[_ids[i]]) {
-                unclaimed_list[unclaimed_count] = _ids[i];
-                unclaimed_count++;
-            }
-        }
-        return(unclaimed_count, unclaimed_list);
-    } 
 
     function withdraw() public onlyOwner {
         uint256 balance = address(this).balance;
@@ -142,7 +172,7 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
     // this is callback, it will be called by the vrf coordinator
     function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
         request_id = requestId;
-        if(!revealed) {
+        if(revealed && randStartPos==0) {
           randStartPos = randomness % MAX_TOKENS;
         }
     }
