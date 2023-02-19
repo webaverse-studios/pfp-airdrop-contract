@@ -64,16 +64,16 @@ library MerkleProof {
 contract PFP is ERC721A, Ownable, VRFConsumerBase {
     using Strings for uint256;
     
-    uint256 public MAX_TOKENS = 20000;
-    string public baseExtension = ".json";
+    uint256 public constant MAX_TOKENS = 20000;
+    string public constant BASE_EXTENSION = ".json";
     string private _baseURIextended;
     address public _passAddress;
     bool public revealed = false;
     string public notRevealedUri = "";
     uint256 public randStartPos;
-    bytes32 public vrfKeyHash;
+    bytes32 public immutable vrfKeyHash;
     bytes32 public request_id;
-    IEPSDelegationRegister public EPS;
+    IEPSDelegationRegister public immutable EPS;
     bytes32 public snapshotMerkleRoot;
     mapping (address => uint256) private _claimedAmount;
     
@@ -133,7 +133,7 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
         }
         string memory currentBaseURI = _baseURI();
         return bytes(currentBaseURI).length > 0
-            ? string(abi.encodePacked(currentBaseURI, ((tokenId+randStartPos) % MAX_TOKENS).toString(), baseExtension))
+            ? string(abi.encodePacked(currentBaseURI, ((tokenId+randStartPos) % MAX_TOKENS).toString(), BASE_EXTENSION))
             : "";
     }
 
@@ -147,14 +147,15 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
             if (MerkleProof.verify(merkleProof, snapshotMerkleRoot, keccak256(abi.encodePacked(msg.sender, '_', allowance)))) {
                 if(_claimedAmount[coldWallet] + numberOfTokens <= allowance ) {
                     _safeMint(msg.sender, numberOfTokens);
-                    result = string(abi.encodePacked("Mint is successed!"));
+                    _claimedAmount[coldWallet] += numberOfTokens;
+                    result = string(abi.encodePacked("Mint successful!"));
                     return result;
                 } else {
                     isVerified = true;
                 }
             }
         }
-        result = isVerified? string(abi.encodePacked("Claim would exceed allowance of tokens!")) : string(abi.encodePacked("Address is not verified in snapshot!"));
+        result = isVerified? string(abi.encodePacked("Claim exceeds token allowance!")) : string(abi.encodePacked("Address not in snapshot!"));
         return result;
     }
 
