@@ -137,7 +137,7 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
             : "";
     }
 
-    function claimTokens(bytes32[] calldata merkleProof, uint256 numberOfTokens, uint256 allowance ) public returns(string memory) {
+    function claimTokens(bytes32[] calldata merkleProof, uint256 numberOfTokens, uint256 allowance ) external returns(string memory) {
         address[] memory coldWallets = EPS.getAddresses(msg.sender, _passAddress, 1, true, true);
         string memory result;
         bool isVerified = false;
