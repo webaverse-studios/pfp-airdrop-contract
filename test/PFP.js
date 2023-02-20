@@ -944,8 +944,6 @@ describe("PFP", () => {
         const leaf = merkleHash(leaves[13])
         const proof = tree.getHexProof(leaf)
 
-        console.log(await hhPFP.totalSupply())
-
         await expect(
           hhPFP
             .connect(owner)
