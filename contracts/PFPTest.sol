@@ -9,9 +9,9 @@ import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
-import "./VRFConsumerBase.sol";
-import "./ERC721A.sol";
-import "./EPSInterface/IEPSDelegationRegister.sol";
+import "./mocks/VRF/VRFConsumerMock.sol";
+import "../ethereum/ERC721A.sol";
+import "../ethereum/EPSInterface/IEPSDelegationRegister.sol";
 
 /**
  * @dev These functions deal with verification of Merkle Trees proofs.
@@ -61,10 +61,10 @@ library MerkleProof {
     }
 }
 
-contract PFP is ERC721A, Ownable, VRFConsumerBase {
+contract PFPTest is ERC721A, Ownable, VRFConsumerMock {
     using Strings for uint256;
     
-    uint256 public constant MAX_TOKENS = 20000;
+    uint256 public constant MAX_TOKENS = 400;
     string public constant BASE_EXTENSION = ".json";
     string public _baseURIextended;
     address public _passAddress;
@@ -91,10 +91,10 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
         address _ChainlinkVRFCoordinator,
         address _ChainlinkLINKToken,
         bytes32 _ChainlinkKeyHash
-    ) ERC721A("PFP", "PFP") VRFConsumerBase(_ChainlinkVRFCoordinator, _ChainlinkLINKToken) {
+    ) ERC721A("PFP", "PFP") VRFConsumerMock(_ChainlinkVRFCoordinator, _ChainlinkLINKToken) {
         _passAddress = passAddress_;
         vrfKeyHash = _ChainlinkKeyHash;
-        EPS = IEPSDelegationRegister(epsAddress_);
+        EPS = IEPSDelegationRegister(epsAddress_); 
     }
 
     function setBaseURI(string memory baseURI_) external onlyOwner() {
@@ -175,7 +175,7 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
 
     function _getRandomNumber() internal returns (bytes32 requestId) {
         uint256 fee = 0.1 * 10 ** 18;
-        require( LINK.balanceOf(address(this)) >= fee, "YOU HAVE TO SEND LINK TOKEN TO THIS CONTRACT");
+        //require( LINK.balanceOf(address(this)) >= fee, "YOU HAVE TO SEND LINK TOKEN TO THIS CONTRACT");
         return requestRandomness(vrfKeyHash, fee);
     }
 
