@@ -64,19 +64,23 @@ library MerkleProof {
 contract PFP is ERC721A, Ownable, VRFConsumerBase {
     using Strings for uint256;
     
-    uint256 public MAX_TOKENS = 20000;
-    string public baseExtension = ".json";
-    string private _baseURIextended;
+    uint256 public constant MAX_TOKENS = 20000;
+    string public constant BASE_EXTENSION = ".json";
+    string public _baseURIextended;
     address public _passAddress;
     bool public revealed = false;
     string public notRevealedUri = "";
     uint256 public randStartPos;
-    bytes32 public vrfKeyHash;
+    bytes32 public immutable vrfKeyHash;
     bytes32 public request_id;
-    IEPSDelegationRegister public EPS;
+    IEPSDelegationRegister public immutable EPS;
     bytes32 public snapshotMerkleRoot;
-    mapping (address => uint256) private _claimedAmount;
-    
+    mapping (address => uint256) public _claimedAmount;
+
+    error ClaimExceedsAllowance(uint128 claim, uint128 allowance);
+    error InvalidProof();
+    event WebaversePFPMint(uint256 amountMinted);
+
     constructor(
         address passAddress_,
         address epsAddress_,
@@ -90,6 +94,7 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
     }
 
     function setBaseURI(string memory baseURI_) external onlyOwner() {
+        require(!revealed, "Collection revealed, cannot set URI");
         _baseURIextended = baseURI_;
     }
 
@@ -108,7 +113,6 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
     function reveal() public onlyOwner {
       if(!revealed) {
         getRandomNumber();
-        revealed = true;
       }
     }
 
@@ -133,29 +137,32 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
         }
         string memory currentBaseURI = _baseURI();
         return bytes(currentBaseURI).length > 0
-            ? string(abi.encodePacked(currentBaseURI, ((tokenId+randStartPos) % MAX_TOKENS).toString(), baseExtension))
+            ? string(abi.encodePacked(currentBaseURI, ((tokenId+randStartPos) % MAX_TOKENS).toString(), BASE_EXTENSION))
             : "";
     }
 
-    function claimTokens(bytes32[] calldata merkleProof, uint256 numberOfTokens, uint256 allowance ) public returns(string memory) {
+    function claimTokens(bytes32[] calldata merkleProof, uint256 numberOfTokens, uint256 allowance ) external {
         address[] memory coldWallets = EPS.getAddresses(msg.sender, _passAddress, 1, true, true);
         string memory result;
         bool isVerified = false;
         require(totalSupply() + numberOfTokens <= MAX_TOKENS, "Claim would exceed max supply of tokens!");
         for (uint256 i = 0; i < coldWallets.length; i++) {
             address coldWallet = coldWallets[i];
-            if (MerkleProof.verify(merkleProof, snapshotMerkleRoot, keccak256(abi.encodePacked(msg.sender, '_', allowance)))) {
+            if (MerkleProof.verify(merkleProof, snapshotMerkleRoot, keccak256(abi.encodePacked(coldWallet, '_', allowance)))) {
                 if(_claimedAmount[coldWallet] + numberOfTokens <= allowance ) {
                     _safeMint(msg.sender, numberOfTokens);
-                    result = string(abi.encodePacked("Mint is successed!"));
-                    return result;
+                    _claimedAmount[coldWallet] += numberOfTokens;
+                    emit WebaversePFPMint(numberOfTokens);
+                    // Function exit 1: success
+                    return;
                 } else {
-                    isVerified = true;
+                    // Function exit 2: claim exceeds allowance
+                    revert ClaimExceedsAllowance(uint128(numberOfTokens), uint128(allowance - _claimedAmount[coldWallet]));
                 }
             }
         }
-        result = isVerified? string(abi.encodePacked("Claim would exceed allowance of tokens!")) : string(abi.encodePacked("Address is not verified in snapshot!"));
-        return result;
+        // Function exit 3: no matching proof
+        revert InvalidProof();
     }
 
     function withdraw() public onlyOwner {
@@ -163,7 +170,7 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
         payable(msg.sender).transfer(balance);
     }
 
-    function getRandomNumber() public payable returns (bytes32 requestId) {
+    function getRandomNumber() internal returns (bytes32 requestId) {
         uint256 fee = 0.1 * 10 ** 18;
         require( LINK.balanceOf(address(this)) >= fee, "YOU HAVE TO SEND LINK TOKEN TO THIS CONTRACT");
         return requestRandomness(vrfKeyHash, fee);
@@ -172,8 +179,10 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
     // this is callback, it will be called by the vrf coordinator
     function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
         request_id = requestId;
-        if(revealed && randStartPos==0) {
-          randStartPos = randomness % MAX_TOKENS;
+        if(randStartPos==0) {
+            andStartPos = randomness % MAX_TOKENS;
+            revealed = true;
+            emit CollectionRevealed(randStartPos);
         }
     }
 
