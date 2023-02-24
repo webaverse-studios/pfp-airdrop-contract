@@ -148,7 +148,7 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
     }
 
     function claimTokens(bytes32[] calldata merkleProof, uint256 numberOfTokens, uint256 allowance ) external {
-        require(!claimIsActive, "Claim is not active yet!");
+        require(claimIsActive, "Claim is not active yet!");
         require(totalSupply() + numberOfTokens <= MAX_TOKENS, "Claim would exceed max supply of tokens!");
         address[] memory coldWallets = EPS.getAddresses(msg.sender, _passAddress, 1, true, true);
         for (uint256 i = 0; i < coldWallets.length; i++) {
