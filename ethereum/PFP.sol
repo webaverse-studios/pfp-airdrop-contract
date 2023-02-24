@@ -89,7 +89,7 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
         address _ChainlinkVRFCoordinator,
         address _ChainlinkLINKToken,
         bytes32 _ChainlinkKeyHash
-    ) ERC721A("PFP", "PFP") VRFConsumerBase(_ChainlinkVRFCoordinator, _ChainlinkLINKToken) {
+    ) ERC721A("Degens of The Street", "DEGN") VRFConsumerBase(_ChainlinkVRFCoordinator, _ChainlinkLINKToken) {
         _passAddress = passAddress_;
         vrfKeyHash = _ChainlinkKeyHash;
         EPS = IEPSDelegationRegister(epsAddress_);
@@ -172,6 +172,16 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
         revert InvalidProof();
     }
 
+    function mintTokens(uint256 numberOfTokens) external onlyOwner {
+        require(!claimIsActive, "Claim is not finished yet!");
+        require(totalSupply() + numberOfTokens <= MAX_TOKENS, "Claim would exceed max supply of tokens!");
+        _safeMint(msg.sender, numberOfTokens);
+    }
+
+    function getClaimedAmount(address coldWallet) public view returns (uint256) {
+        return _claimedAmount[coldWallet];
+    }
+
     function withdraw() public onlyOwner {
         uint256 balance = address(this).balance;
         payable(msg.sender).transfer(balance);
@@ -179,7 +189,7 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
 
     function getRandomNumber() internal returns (bytes32 requestId) {
         uint256 fee = 0.1 * 10 ** 18;
-        require( LINK.balanceOf(address(this)) >= fee, "YOU HAVE TO SEND LINK TOKEN TO THIS CONTRACT");
+        require( LINK.balanceOf(address(this)) >= fee, "Please send Link token to the contract");
         return requestRandomness(vrfKeyHash, fee);
     }
 
