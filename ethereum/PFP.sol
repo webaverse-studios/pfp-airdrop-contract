@@ -75,11 +75,13 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
     bytes32 public request_id;
     IEPSDelegationRegister public immutable EPS;
     bytes32 public snapshotMerkleRoot;
+        bool public claimIsActive = false;
     mapping (address => uint256) public _claimedAmount;
 
     error ClaimExceedsAllowance(uint128 claim, uint128 allowance);
     error InvalidProof();
     event WebaversePFPMint(uint256 amountMinted);
+    event CollectionRevealed(uint256 randomStartPosition);
 
     constructor(
         address passAddress_,
@@ -125,6 +127,10 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
         return snapshotMerkleRoot;
     }
 
+    function flipClaimiState() public onlyOwner {
+        claimIsActive = !claimIsActive;
+    }
+
     /**
      * Returns the tokenURI
      * Random starting positions can only be set before the token's metadata is revealed.
@@ -142,13 +148,14 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
     }
 
     function claimTokens(bytes32[] calldata merkleProof, uint256 numberOfTokens, uint256 allowance ) external {
-        address[] memory coldWallets = EPS.getAddresses(msg.sender, _passAddress, 1, true, true);
-        string memory result;
-        bool isVerified = false;
+        require(!claimIsActive, "Claim is not active yet!");
         require(totalSupply() + numberOfTokens <= MAX_TOKENS, "Claim would exceed max supply of tokens!");
+        address[] memory coldWallets = EPS.getAddresses(msg.sender, _passAddress, 1, true, true);
         for (uint256 i = 0; i < coldWallets.length; i++) {
             address coldWallet = coldWallets[i];
-            if (MerkleProof.verify(merkleProof, snapshotMerkleRoot, keccak256(abi.encodePacked(coldWallet, '_', allowance)))) {
+            string memory coldWallet_str = Strings.toHexString(uint256(uint160(coldWallet)), 20);
+            string memory claiming_str = string(abi.encodePacked(coldWallet_str, '_', allowance.toString()));
+            if (MerkleProof.verify(merkleProof, snapshotMerkleRoot, keccak256(bytes(claiming_str)))) {
                 if(_claimedAmount[coldWallet] + numberOfTokens <= allowance ) {
                     _safeMint(msg.sender, numberOfTokens);
                     _claimedAmount[coldWallet] += numberOfTokens;
@@ -180,7 +187,7 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
     function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
         request_id = requestId;
         if(randStartPos==0) {
-            andStartPos = randomness % MAX_TOKENS;
+            randStartPos = randomness % MAX_TOKENS;
             revealed = true;
             emit CollectionRevealed(randStartPos);
         }
