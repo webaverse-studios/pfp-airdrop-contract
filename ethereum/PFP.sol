@@ -104,21 +104,21 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
         return _baseURIextended;
     }
     
-    function setPassContract(address passAddress_) public onlyOwner {
+    function setPassContract(address passAddress_) external onlyOwner {
         _passAddress = passAddress_;
     }
 
-    function getPassContract() public view returns (address) {
+    function getPassContract() external view returns (address) {
         return _passAddress;
     }
 
-    function reveal() public onlyOwner {
+    function reveal() external onlyOwner {
       if(!revealed) {
         getRandomNumber();
       }
     }
 
-    function setNotRevealedURI(string memory _notRevealedURI) public onlyOwner {
+    function setNotRevealedURI(string memory _notRevealedURI) external onlyOwner {
         notRevealedUri = _notRevealedURI;
     }
 
@@ -127,7 +127,7 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
         return snapshotMerkleRoot;
     }
 
-    function flipClaimiState() public onlyOwner {
+    function flipClaimState() external onlyOwner {
         claimIsActive = !claimIsActive;
     }
 
@@ -178,11 +178,11 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
         _safeMint(msg.sender, numberOfTokens);
     }
 
-    function getClaimedAmount(address coldWallet) public view returns (uint256) {
+    function getClaimedAmount(address coldWallet) external view returns (uint256) {
         return _claimedAmount[coldWallet];
     }
 
-    function withdraw() public onlyOwner {
+    function withdraw() external onlyOwner {
         uint256 balance = address(this).balance;
         payable(msg.sender).transfer(balance);
     }
