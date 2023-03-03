@@ -157,8 +157,8 @@ contract PFP is ERC721A, Ownable, VRFConsumerBase {
             string memory claiming_str = string(abi.encodePacked(coldWallet_str, '_', allowance.toString()));
             if (MerkleProof.verify(merkleProof, snapshotMerkleRoot, keccak256(bytes(claiming_str)))) {
                 if(_claimedAmount[coldWallet] + numberOfTokens <= allowance ) {
-                    _safeMint(msg.sender, numberOfTokens);
                     _claimedAmount[coldWallet] += numberOfTokens;
+                    _safeMint(msg.sender, numberOfTokens);
                     emit WebaversePFPMint(numberOfTokens);
                     // Function exit 1: success
                     return;
